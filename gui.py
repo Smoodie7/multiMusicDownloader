@@ -272,15 +272,19 @@ class DownloadManagerWidget(QWidget):
     def __init__(self):
         super().__init__()
         self.download_list = QListWidget()
+        self.active_downloads = 0
         layout = QVBoxLayout()
         layout.addWidget(self.download_list)
         self.setLayout(layout)
 
-        self.direct_download_button = QPushButton("Direct Download")  # Create the button
-        self.direct_download_button.clicked.connect(self.direct_download)  # Connect the button to direct_download method
-        layout.addWidget(self.direct_download_button)  # Add the button to the layout
+        self.direct_download_button = QPushButton("Direct Download")
+        self.direct_download_button.clicked.connect(self.direct_download)
+        layout.addWidget(self.direct_download_button)
 
     def add_download(self, item, title, artist, platform, icon):
+        self.active_downloads += 1  # Increment the counter
+        update_download_button_text()
+
         widget_item = QListWidgetItem()
         widget_item.setSizeHint(QSize(38, 80))
 
@@ -322,6 +326,10 @@ class DownloadManagerWidget(QWidget):
 
     def cancel_download(self, item, title):
         global process_thread
+
+        self.active_downloads -= 1  # Decrement the counter
+        update_download_button_text()
+
         item_widget = self.download_list.itemWidget(item)
         progress_bar = item_widget.findChild(QProgressBar)
         progress_bar.setRange(0, 0)
@@ -347,6 +355,8 @@ def handle_downloads(result_tuple):
         error_label.setText(message)
         logging.error(message)
 
+def update_download_button_text():
+    manage_downloads_button.setText(f"Manage Downloads ({download_manager.active_downloads})")
 
 download_manager = DownloadManagerWidget()
 manage_downloads_button = QPushButton("Manage Downloads")
