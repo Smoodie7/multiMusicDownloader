@@ -1,30 +1,29 @@
-import subprocess
 import os
-import sys
 import shutil
+import subprocess
+import sys
 import logging
-
 
 def download_song(query):
     # Create a hidden temp directory and delete if exists
-    temp_dir = os.path.join(os.getcwd(), '.temp')
+    temp_dir = os.path.join(os.getcwd(), 'temp')
     if os.path.exists(temp_dir):
         shutil.rmtree(temp_dir)
-    os.mkdir(temp_dir)
+    os.makedirs(temp_dir, exist_ok=True)
 
     def process_query(query_item):
         query_item = query_item.replace("'", " ").replace('"', ' ')
         if query_item.startswith("https"):
-            download_command = f'spotdl "{query_item}" --output {os.path.abspath(".temp")}'
+            download_command = f'spotdl "{query_item}" --output {temp_dir}'
         else:
-            download_command = f'spotdl \'{query_item}\' --output {os.path.abspath(".temp")}'
+            download_command = f'spotdl \'{query_item}\' --output {temp_dir}'
 
         # Execute the command in the shell
         logging.info(f"Executing: {download_command}")
         subprocess.run(download_command, shell=True)
 
         if sys.platform == 'darwin':
-            add_to_music_app_and_sync(os.path.abspath(".temp"))
+            add_to_music_app_and_sync(temp_dir)
 
         # Move the downloaded file to Musics folder
         for filename in os.listdir(temp_dir):
@@ -45,19 +44,18 @@ def download_song(query):
 def add_to_music_app_and_sync(temp_folder_path):
     # Iterate over all files in the given folder
     for filename in os.listdir(temp_folder_path):
-        # Check if the file is a music file
-        if filename.endswith(".mp3") or filename.endswith(".wav") or filename.endswith(".flac"):
-            # If it is, add it to the Music app
-            music_file_path = os.path.join(temp_folder_path, filename)
-            logging.info(f"Transferring {music_file_path} to Music App..")
+        # If it is, add it to the Music app
+        music_file_path = os.path.join(temp_folder_path, filename)
+        print(f"Transferring {music_file_path} to Music App..")
+        logging.info(f"Transferring {music_file_path} to Music App..")
 
-            # Use AppleScript to add the song to the Music App Library
-            applescript = f"""
-                tell application "Music"
-                    add POSIX file "{music_file_path}"
-                end tell
-                """
-            subprocess.call(["osascript", "-e", applescript])
+        # Use AppleScript to open the file with the Music app
+        applescript_open_music_app = [
+            "osascript",
+            "-e",
+            f'tell app "Music" to add POSIX file "{music_file_path}"'
+        ]
+        subprocess.run(applescript_open_music_app)
 
     # Get device name
     try:
@@ -73,9 +71,9 @@ def add_to_music_app_and_sync(temp_folder_path):
             device_name = None
 
         if not device_name:
-            print("Didn't found connected device, trying wireless..")
+            print("Didn't find connected device, trying wireless..")
             # Attempt to get the name of a wireless connected device
-            # Here we are running a shell script that will timeout after 5 seconds
+            # Here we are running a shell script that will time out after 5 seconds
             result = subprocess.run(['sh', '-c',
                                      """
                                      timeout 5 dns-sd -B _raop._tcp local | grep 'iPhone' | head -1 | awk '{print $7}' | cut -d '.' -f 1
@@ -85,7 +83,7 @@ def add_to_music_app_and_sync(temp_folder_path):
                 device_name = result.stdout.strip()
 
         if device_name:
-            print(f"Found {device_name}, trying to sync Music Library with..")
+            print(f"Found {device_name}, trying to sync Music Library..")
         else:
             logging.error('Failed to retrieve connected device name')
             return
